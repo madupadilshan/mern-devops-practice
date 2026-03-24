@@ -1,0 +1,26 @@
+{
+  "name": "mern-devops-practice",
+  "version": "1.0.0",
+  "description": "A simple MERN stack task board app.",
+  "main": "index.js",
+  "scripts": {
+    "server": "npm run dev --prefix backend",
+    "client": "npm run dev --prefix frontend",
+    "dev": "concurrently \"npm run server\" \"npm run client\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/madupadilshan/Full-Stack-E-Commerce.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/madupadilshan/Full-Stack-E-Commerce/issues"
+  },
+  "homepage": "https://github.com/madupadilshan/Full-Stack-E-Commerce#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
