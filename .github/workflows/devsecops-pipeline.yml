@@ -26,8 +26,9 @@ jobs:
         uses: zricethezav/gitleaks-action@master
 
       # SonarQube (SonarCloud): කේතයේ ගුණාත්මකභාවය (Code Quality) සහ දුර්වලතා බලනවා
+      # [වෙනස් කරන ලද කොටස - අලුත් Action එක මෙහි යොදා ඇත]
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
+        uses: SonarSource/sonarqube-scan-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub එකෙන් ඉබේම දෙන token එකක්
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   # ඔයා කලින් සේප්පුවේ දාපු Sonar Token එක
