@@ -25,7 +25,7 @@ function App() {
     try {
       const response = await api.get('/tasks');
       setTasks(response.data);
-    } catch (err) {
+    } catch {
       setError('Failed to load tasks. Please check Backend/Atlas.');
     } finally {
       setLoading(false);
@@ -38,8 +38,9 @@ function App() {
 
   const createTask = async (event) => {
     event.preventDefault();
+    const normalizedTitle = title.trim();
 
-    if (!title.trim()) {
+    if (!normalizedTitle) {
       return;
     }
 
@@ -47,11 +48,11 @@ function App() {
     setError('');
 
     try {
-      const response = await api.post('/tasks', { title });
+      const response = await api.post('/tasks', { title: normalizedTitle });
       setTasks((previous) => [response.data, ...previous]);
       setTitle('');
     } catch (err) {
-      setError('Failed to save task.');
+      setError(err.response?.data?.message || 'Failed to save task.');
     } finally {
       setSaving(false);
     }
@@ -68,7 +69,7 @@ function App() {
           task._id === taskId ? response.data : task
         )
       );
-    } catch (err) {
+    } catch {
       setError('Failed to update task status.');
     }
   };

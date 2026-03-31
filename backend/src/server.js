@@ -10,11 +10,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(
-  cors({
-    origin: process.env.FRONTEND_URL || '*',
-  })
-);
+app.use(cors());
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => {
@@ -23,21 +19,13 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/tasks', taskRoutes);
 
-app.use((err, _req, res, _next) => {
-  console.error(err);
-  res.status(500).json({ message: 'Unexpected server error.' });
+app.use((_err, _req, res, _next) => {
+  res.status(500).json({ message: 'Server error.' });
 });
 
 const startServer = async () => {
-  try {
-    await connectDB();
-    app.listen(PORT, () => {
-      console.log(`Server listening on port ${PORT}`);
-    });
-  } catch (error) {
-    console.error('Server startup failed:', error.message);
-    process.exit(1);
-  }
+  await connectDB();
+  app.listen(PORT);
 };
 
 startServer();
