@@ -46,8 +46,8 @@ resource "aws_security_group" "web_sg" {
 resource "aws_instance" "app_server" {
   # Ubuntu 22.04 AMI.
   ami = "ami-0c7217cdde317cfec"
-  # Free-tier friendly instance type.
-  instance_type = "t2.micro"
+  # Free-tier eligible in newer AWS accounts.
+  instance_type = "t3.micro"
   # Attach the security group.
   vpc_security_group_ids = [aws_security_group.web_sg.id]
 
