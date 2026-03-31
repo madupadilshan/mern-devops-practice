@@ -5,7 +5,8 @@ provider "aws" {
 
 # Security group for SSH, HTTP, and backend access.
 resource "aws_security_group" "web_sg" {
-  name        = "mern-devops-sg"
+  # Avoid duplicate-name failures when CI runs from a fresh state file.
+  name_prefix = "mern-devops-sg-"
   description = "Allow SSH, HTTP, and Backend ports"
 
   # Allow SSH.
