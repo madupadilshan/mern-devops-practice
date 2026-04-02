@@ -23,22 +23,30 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # -----------------------------------------------------
+ # -----------------------------------------------------
   # 2. SonarQube / SonarCloud (SAST - Code Quality)
   # -----------------------------------------------------
   sonar_scan:
     name: Code Quality Scan
-    needs: gitleaks_scan # පෙර පියවර සමත් වුවහොත් පමණක් ධාවනය වේ
+    needs: gitleaks_scan
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # SonarQube වලට සම්පූර්ණ ඉතිහාසය අවශ්‍යයි
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
+        uses: SonarSource/sonarqube-scan-action@master # Warning එක නැති කිරීමට අලුත් Action එක
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: "https://sonarcloud.io" # මෙය අනිවාර්යයි
+        with:
+          args: >
+            -Dsonar.organization=madupadilshan
+            -Dsonar.projectKey=madupadilshan_mern-devops-practice
+            -Dsonar.sources=frontend/src,backend/src
 
   # -----------------------------------------------------
   # 3. Docker Build, Trivy Scan, and Push to AWS ECR
