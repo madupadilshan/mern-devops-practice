@@ -1,8 +1,11 @@
-# Node.js හි සැහැල්ලු (lightweight) සංස්කරණයක් පදනම් කරගැනීම
-FROM node:18-alpine
+# Node.js base image (patched Alpine stream)
+FROM node:20-alpine3.22
 
 # Container එක ඇතුළත වැඩ කරන ෆෝල්ඩරය (Working Directory) සකස් කිරීම
 WORKDIR /app
+
+# Pull latest security patches (including OpenSSL / libcrypto / libssl)
+RUN apk upgrade --no-cache
 
 # Package.json ගොනු පමණක් පළමුව copy කිරීම (කාලය ඉතිරි කරගැනීමට)
 COPY package*.json ./
