@@ -53,7 +53,7 @@ data "aws_ami" "ubuntu" {
 # 2. EC2 සර්වර් එක සෑදීම
 resource "aws_instance" "mern_server" {
   ami           = data.aws_ami.ubuntu.id # Hardcode කළ අගය වෙනුවට dynamic අගය ලබාදීම
-  instance_type = "t2.micro"
+  instance_type = "t3.micro"
   key_name      = var.key_name
   vpc_security_group_ids = [aws_security_group.mern_sg.id]
 
