@@ -178,27 +178,55 @@ jobs:
     needs: terraform_deploy
     runs-on: ubuntu-latest
     steps:
-      # සර්වර් එක on වී Docker install වන තුරු තත්පර 120ක් රැඳී සිටීම
       - name: Wait for EC2 to initialize and install Docker
         run: sleep 120
 
+      # 1. Runner එකට AWS ඇතුළත් වීම
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # 2. Runner එක හරහා ECR Login Password එක ලබාගැනීම
+      - name: Get ECR Login Password
+        id: ecr_auth
+        run: echo "password=$(aws ecr get-login-password --region ${{ secrets.AWS_REGION }})" >> $GITHUB_OUTPUT
+
+      # 3. සර්වර් එකට ලොග් වී Deploy කිරීම
       - name: Execute Deploy Commands via SSH
         uses: appleboy/ssh-action@master
+        env:
+          # GitHub සිට EC2 වෙත ආරක්ෂිතව දත්ත යැවීම
+          ECR_PASSWORD: ${{ steps.ecr_auth.outputs.password }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
         with:
-          # කලින් Job එකෙන් ආපු අලුත්ම IP එක මෙතනට ස්වයංක්‍රීයව ලැබේ!
           host: ${{ needs.terraform_deploy.outputs.EC2_DYNAMIC_IP }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: ECR_PASSWORD,MONGODB_URI,AWS_ACCOUNT_ID,AWS_REGION
           script: |
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | sudo docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+            set -e # යම් දෝෂයක් ආවොත් Pipeline එක Fail කර නැවැත්වීමට මෙය අත්‍යවශ්‍යයි!
 
+            echo "Logging into ECR..."
+            echo "$ECR_PASSWORD" | sudo docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+            echo "Stopping old containers..."
             sudo docker stop mern-backend mern-frontend || true
             sudo docker rm mern-backend mern-frontend || true
 
-            sudo docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mern-backend:latest
-            sudo docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mern-frontend:latest
+            echo "Pulling new images..."
+            sudo docker pull $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/mern-backend:latest
+            sudo docker pull $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/mern-frontend:latest
 
-            sudo docker run -d --name mern-backend -p 5000:5000 -e MONGODB_URI="${{ secrets.MONGODB_URI }}" ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mern-backend:latest
-            sudo docker run -d --name mern-frontend -p 80:80 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mern-frontend:latest
+            echo "Starting backend..."
+            sudo docker run -d --name mern-backend -p 5000:5000 -e MONGODB_URI="$MONGODB_URI" $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/mern-backend:latest
 
+            echo "Starting frontend..."
+            sudo docker run -d --name mern-frontend -p 80:80 $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/mern-frontend:latest
+
+            echo "Cleaning up..."
             sudo docker image prune -f
