@@ -8,4 +8,5 @@ variable "aws_region" {
 variable "devsecops_aws_key" {
   description = "devsecops-aws-key"
   type        = string
+  default     = "devsecops_aws_key"
 }
