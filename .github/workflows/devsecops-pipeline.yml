@@ -1,0 +1,173 @@
+name: MERN DevSecOps Pipeline
+
+on:
+  push:
+    branches:
+      - main # main branch එකට push කළ විට පමණක් මෙය ක්‍රියාත්මක වේ
+
+jobs:
+  # -----------------------------------------------------
+  # 1. GitLeaks (Secret Scanning)
+  # -----------------------------------------------------
+  gitleaks_scan:
+    name: Secret Scanning with GitLeaks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Run GitLeaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # -----------------------------------------------------
+  # 2. SonarQube / SonarCloud (SAST - Code Quality)
+  # -----------------------------------------------------
+  sonar_scan:
+    name: Code Quality Scan
+    needs: gitleaks_scan # පෙර පියවර සමත් වුවහොත් පමණක් ධාවනය වේ
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # -----------------------------------------------------
+  # 3. Docker Build, Trivy Scan, and Push to AWS ECR
+  # -----------------------------------------------------
+  build_scan_push:
+    name: Build, Scan and Push to ECR
+    needs: sonar_scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      # --- Backend Image ---
+      - name: Build Backend Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: mern-backend
+          IMAGE_TAG: latest
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend
+
+      - name: Trivy Scan Backend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ steps.login-ecr.outputs.registry }}/mern-backend:latest'
+          format: 'table'
+          exit-code: '1' # අවදානමක් ඇත්නම් Pipeline එක fail කරයි
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push Backend Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: mern-backend
+          IMAGE_TAG: latest
+        run: docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      # --- Frontend Image ---
+      - name: Build Frontend Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: mern-frontend
+          IMAGE_TAG: latest
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./frontend
+
+      - name: Trivy Scan Frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ steps.login-ecr.outputs.registry }}/mern-frontend:latest'
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push Frontend Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: mern-frontend
+          IMAGE_TAG: latest
+        run: docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+  # -----------------------------------------------------
+  # 4. Terraform Apply (Infrastructure Provisioning)
+  # -----------------------------------------------------
+  terraform_deploy:
+    name: Terraform Apply
+    needs: build_scan_push
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./terraform
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+
+  # -----------------------------------------------------
+  # 5. Deploy to EC2 Instance
+  # -----------------------------------------------------
+  deploy_to_ec2:
+    name: Deploy to EC2
+    needs: terraform_deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute Deploy Commands via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # ECR වෙත ලොග් වීම
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | sudo docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+
+            # පැරණි Containers නතර කර ඉවත් කිරීම
+            sudo docker stop mern-backend mern-frontend || true
+            sudo docker rm mern-backend mern-frontend || true
+
+            # නවතම Images ලබා ගැනීම
+            sudo docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mern-backend:latest
+            sudo docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mern-frontend:latest
+
+            # Backend එක ධාවනය කිරීම (Database URL එක ලබා දෙමින්)
+            sudo docker run -d --name mern-backend -p 5000:5000 -e MONGODB_URI="${{ secrets.MONGODB_URI }}" ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mern-backend:latest
+
+            # Frontend එක ධාවනය කිරීම
+            sudo docker run -d --name mern-frontend -p 80:80 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mern-frontend:latest
+
+            # භාවිතයට නොගන්නා පැරණි Images මකා දැමීම (Clean up)
+            sudo docker image prune -f
