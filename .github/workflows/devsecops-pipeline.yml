@@ -152,10 +152,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # --- මෙන්න මෙතනයි අලුතින් Setup Terraform එකතු කළේ ---
+      # --- මෙන්න මෙතනයි අලුතින් වෙනස් කළේ ---
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
-      # -----------------------------------------------------
+        with:
+          terraform_wrapper: false # IP එක නිවැරදිව ලබාගැනීමට Wrapper එක අක්‍රිය කිරීම
+      # ------------------------------------
 
       - name: Terraform Init
         run: terraform init
