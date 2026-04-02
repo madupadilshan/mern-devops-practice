@@ -163,6 +163,8 @@ jobs:
         run: terraform init
 
       - name: Terraform Apply
+        env:
+          TF_VAR_key_name: ${{ secrets.EC2_KEY_PAIR_NAME }}
         run: terraform apply -auto-approve
 
       # Terraform වලින් අලුත් IP එක ලබාගෙන එය GitHub Output එකක් බවට පත් කිරීම
