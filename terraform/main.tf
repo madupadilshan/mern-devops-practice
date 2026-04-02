@@ -34,9 +34,25 @@ resource "aws_security_group" "mern_sg" {
   }
 }
 
+# --- අලුත් කොටස: ඔටෝමැටික් අලුත්ම Ubuntu AMI එක සොයාගැනීම ---
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"] # Canonical (Ubuntu) සමාගමේ නිල AWS ID එක
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
 # 2. EC2 සර්වර් එක සෑදීම
 resource "aws_instance" "mern_server" {
-  ami           = "ami-0c7217cdde317cfec" # මෙය ඔබගේ Region එකට අදාළ AMI එක විය යුතුය
+  ami           = data.aws_ami.ubuntu.id # Hardcode කළ අගය වෙනුවට dynamic අගය ලබාදීම
   instance_type = "t2.micro"
   key_name      = var.key_name
   vpc_security_group_ids = [aws_security_group.mern_sg.id]
