@@ -23,7 +23,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
- # -----------------------------------------------------
+  # -----------------------------------------------------
   # 2. SonarQube / SonarCloud (SAST - Code Quality)
   # -----------------------------------------------------
   sonar_scan:
@@ -127,7 +127,8 @@ jobs:
           ECR_REPOSITORY: mern-frontend
           IMAGE_TAG: latest
         run: docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-# -----------------------------------------------------
+
+  # -----------------------------------------------------
   # 4. Terraform Apply (Infrastructure Provisioning)
   # -----------------------------------------------------
   terraform_deploy:
@@ -150,6 +151,11 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
+
+      # --- මෙන්න මෙතනයි අලුතින් Setup Terraform එකතු කළේ ---
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+      # -----------------------------------------------------
 
       - name: Terraform Init
         run: terraform init
