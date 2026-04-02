@@ -5,8 +5,8 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "devsecops_aws_key" {
-  description = "devsecops-aws-key"
+variable "key_name" {
+  description = "AWS EC2 Key Pair Name"
   type        = string
   default     = "devsecops_aws_key"
 }
