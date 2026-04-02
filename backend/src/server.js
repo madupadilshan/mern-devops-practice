@@ -24,8 +24,17 @@ app.use((_err, _req, res, _next) => {
 });
 
 const startServer = async () => {
-  await connectDB();
-  app.listen(PORT);
+  try {
+    await connectDB();
+    console.log('Database connected.');
+  } catch (error) {
+    console.warn('Database connection failed. Starting API without DB.');
+    console.warn(error.message);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`Server listening on port ${PORT}`);
+  });
 };
 
 startServer();
