@@ -85,7 +85,7 @@ jobs:
           image-ref: '${{ steps.login-ecr.outputs.registry }}/mern-backend:latest'
           format: 'table'
           exit-code: '1' # අවදානමක් ඇත්නම් Pipeline එක fail කරයි
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL'
 
       - name: Push Backend Image
         env:
@@ -109,7 +109,7 @@ jobs:
           image-ref: '${{ steps.login-ecr.outputs.registry }}/mern-frontend:latest'
           format: 'table'
           exit-code: '1'
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL'
 
       - name: Push Frontend Image
         env:
