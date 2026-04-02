@@ -11,6 +11,5 @@ RUN npm run build
 FROM nginx:alpine
 # පළමු අදියරේදී සෑදුණු dist ෆෝල්ඩරයේ ඇති ගොනු ටික පමණක් Nginx වෙතට copy කිරීම
 COPY --from=build /app/dist /usr/share/nginx/html
-# Nginx ධාවනය වන port 80 විවෘත කිරීම
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
