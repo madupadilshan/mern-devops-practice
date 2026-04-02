@@ -127,14 +127,16 @@ jobs:
           ECR_REPOSITORY: mern-frontend
           IMAGE_TAG: latest
         run: docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
-  # -----------------------------------------------------
+# -----------------------------------------------------
   # 4. Terraform Apply (Infrastructure Provisioning)
   # -----------------------------------------------------
   terraform_deploy:
     name: Terraform Apply
     needs: build_scan_push
     runs-on: ubuntu-latest
+    # මීළඟ Job එකට IP එක pass කිරීම සඳහා outputs සෑදීම
+    outputs:
+      EC2_DYNAMIC_IP: ${{ steps.get_ip.outputs.ip }}
     defaults:
       run:
         working-directory: ./terraform
@@ -149,46 +151,46 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
       - name: Terraform Init
         run: terraform init
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
 
+      # Terraform වලින් අලුත් IP එක ලබාගෙන එය GitHub Output එකක් බවට පත් කිරීම
+      - name: Get EC2 IP Address
+        id: get_ip
+        run: echo "ip=$(terraform output -raw server_public_ip)" >> $GITHUB_OUTPUT
+
   # -----------------------------------------------------
-  # 5. Deploy to EC2 Instance
+  # 5. Deploy to EC2 Instance (Using Dynamic IP)
   # -----------------------------------------------------
   deploy_to_ec2:
     name: Deploy to EC2
     needs: terraform_deploy
     runs-on: ubuntu-latest
     steps:
+      # සර්වර් එක on වී Docker install වන තුරු තත්පර 120ක් රැඳී සිටීම
+      - name: Wait for EC2 to initialize and install Docker
+        run: sleep 120
+
       - name: Execute Deploy Commands via SSH
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.EC2_HOST }}
+          # කලින් Job එකෙන් ආපු අලුත්ම IP එක මෙතනට ස්වයංක්‍රීයව ලැබේ!
+          host: ${{ needs.terraform_deploy.outputs.EC2_DYNAMIC_IP }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # ECR වෙත ලොග් වීම
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | sudo docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
 
-            # පැරණි Containers නතර කර ඉවත් කිරීම
             sudo docker stop mern-backend mern-frontend || true
             sudo docker rm mern-backend mern-frontend || true
 
-            # නවතම Images ලබා ගැනීම
             sudo docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mern-backend:latest
             sudo docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mern-frontend:latest
 
-            # Backend එක ධාවනය කිරීම (Database URL එක ලබා දෙමින්)
             sudo docker run -d --name mern-backend -p 5000:5000 -e MONGODB_URI="${{ secrets.MONGODB_URI }}" ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mern-backend:latest
-
-            # Frontend එක ධාවනය කිරීම
             sudo docker run -d --name mern-frontend -p 80:80 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/mern-frontend:latest
 
-            # භාවිතයට නොගන්නා පැරණි Images මකා දැමීම (Clean up)
             sudo docker image prune -f

@@ -70,3 +70,8 @@ resource "aws_instance" "mern_server" {
     Name = "MERN-DevSecOps-Server"
   }
 }
+
+output "server_public_ip" {
+  description = "අලුතින් සෑදූ EC2 සර්වර් එකේ IP ලිපිනය"
+  value       = aws_instance.mern_server.public_ip
+}
