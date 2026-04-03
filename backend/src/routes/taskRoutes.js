@@ -17,6 +17,7 @@ router.post('/', async (req, res) => {
     const { title } = req.body;
     const normalizedTitle = typeof title === 'string' ? title.trim() : '';
 
+    // Reject empty or whitespace-only titles.
     if (!normalizedTitle) {
       return res.status(400).json({ message: 'Title is required.' });
     }
@@ -30,6 +31,7 @@ router.post('/', async (req, res) => {
 
 router.patch('/:id/toggle', async (req, res) => {
   try {
+    // Toggle the done flag for the selected task.
     const task = await Task.findById(req.params.id);
 
     if (!task) {

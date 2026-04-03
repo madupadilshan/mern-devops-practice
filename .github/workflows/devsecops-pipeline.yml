@@ -3,12 +3,10 @@ name: MERN DevSecOps Pipeline
 on:
   push:
     branches:
-      - main # main branch එකට push කළ විට පමණක් මෙය ක්‍රියාත්මක වේ
+      - main # Run only for pushes to main.
 
 jobs:
-  # -----------------------------------------------------
-  # 1. GitLeaks (Secret Scanning)
-  # -----------------------------------------------------
+  # 1) Secret scanning
   gitleaks_scan:
     name: Secret Scanning with GitLeaks
     runs-on: ubuntu-latest
@@ -23,9 +21,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # -----------------------------------------------------
-  # 2. SonarQube / SonarCloud (SAST - Code Quality)
-  # -----------------------------------------------------
+  # 2) SAST and code quality scan
   sonar_scan:
     name: Code Quality Scan
     needs: gitleaks_scan
@@ -34,23 +30,21 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0 # SonarQube වලට සම්පූර්ණ ඉතිහාසය අවශ්‍යයි
+          fetch-depth: 0 # Sonar needs full git history.
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@master # Warning එක නැති කිරීමට අලුත් Action එක
+        uses: SonarSource/sonarqube-scan-action@master # Keep current action to preserve existing behavior.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: "https://sonarcloud.io" # මෙය අනිවාර්යයි
+          SONAR_HOST_URL: "https://sonarcloud.io" # Required for SonarCloud.
         with:
           args: >
             -Dsonar.organization=madupadilshan
             -Dsonar.projectKey=madupadilshan_mern-devops-practice
             -Dsonar.sources=frontend/src,backend/src
 
-  # -----------------------------------------------------
-  # 3. Docker Build, Trivy Scan, and Push to AWS ECR
-  # -----------------------------------------------------
+  # 3) Build images, scan with Trivy, and push to ECR
   build_scan_push:
     name: Build, Scan and Push to ECR
     needs: sonar_scan
@@ -94,7 +88,7 @@ jobs:
         with:
           image-ref: '${{ steps.login-ecr.outputs.registry }}/mern-backend:latest'
           format: 'table'
-          exit-code: '1' # අවදානමක් ඇත්නම් Pipeline එක fail කරයි
+          exit-code: '1' # Fail pipeline if critical issues are found.
           severity: 'CRITICAL'
 
       - name: Push Backend Image
@@ -128,14 +122,12 @@ jobs:
           IMAGE_TAG: latest
         run: docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-  # -----------------------------------------------------
-  # 4. Terraform Apply (Infrastructure Provisioning)
-  # -----------------------------------------------------
+  # 4) Provision infrastructure with Terraform
   terraform_deploy:
     name: Terraform Apply
     needs: build_scan_push
     runs-on: ubuntu-latest
-    # මීළඟ Job එකට IP එක pass කිරීම සඳහා outputs සෑදීම
+    # Pass created EC2 IP to the next job.
     outputs:
       EC2_DYNAMIC_IP: ${{ steps.get_ip.outputs.ip }}
     defaults:
@@ -152,12 +144,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # --- මෙන්න මෙතනයි අලුතින් වෙනස් කළේ ---
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_wrapper: false # IP එක නිවැරදිව ලබාගැනීමට Wrapper එක අක්‍රිය කිරීම
-      # ------------------------------------
+          terraform_wrapper: false # Disable wrapper to read raw output values.
 
       - name: Terraform Init
         run: terraform init
@@ -165,14 +155,12 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -auto-approve
 
-      # Terraform වලින් අලුත් IP එක ලබාගෙන එය GitHub Output එකක් බවට පත් කිරීම
+      # Read instance IP from Terraform output.
       - name: Get EC2 IP Address
         id: get_ip
         run: echo "ip=$(terraform output -raw server_public_ip)" >> $GITHUB_OUTPUT
 
-  # -----------------------------------------------------
-  # 5. Deploy to EC2 Instance (Using Dynamic IP)
-  # -----------------------------------------------------
+  # 5) Deploy containers to EC2
   deploy_to_ec2:
     name: Deploy to EC2
     needs: terraform_deploy
@@ -181,7 +169,7 @@ jobs:
       - name: Wait for EC2 to initialize and install Docker
         run: sleep 120
 
-      # 1. Runner එකට AWS ඇතුළත් වීම
+      # 1) Configure AWS access on the runner.
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -189,16 +177,16 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # 2. Runner එක හරහා ECR Login Password එක ලබාගැනීම
+      # 2) Get temporary ECR login password.
       - name: Get ECR Login Password
         id: ecr_auth
         run: echo "password=$(aws ecr get-login-password --region ${{ secrets.AWS_REGION }})" >> $GITHUB_OUTPUT
 
-      # 3. සර්වර් එකට ලොග් වී Deploy කිරීම
+      # 3) Run deployment commands on the target EC2 host.
       - name: Execute Deploy Commands via SSH
         uses: appleboy/ssh-action@master
         env:
-          # GitHub සිට EC2 වෙත ආරක්ෂිතව දත්ත යැවීම
+          # Pass secrets as env vars for remote deploy steps.
           ECR_PASSWORD: ${{ steps.ecr_auth.outputs.password }}
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
@@ -209,7 +197,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           envs: ECR_PASSWORD,MONGODB_URI,AWS_ACCOUNT_ID,AWS_REGION
           script: |
-            set -e # යම් දෝෂයක් ආවොත් Pipeline එක Fail කර නැවැත්වීමට මෙය අත්‍යවශ්‍යයි!
+            set -e # Stop immediately if any command fails.
 
             echo "Logging into ECR..."
             echo "$ECR_PASSWORD" | sudo docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com

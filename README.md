@@ -1,15 +1,18 @@
 # MERN DevOps Practice App
 
-A simple MERN stack task board app for DevOps practice.
+A simple MERN task board used for DevOps and deployment practice.
 
-- Frontend: React (Vite)
+## Stack
+
+- Frontend: React + Vite
 - Backend: Node.js + Express + Mongoose
 - Database: MongoDB Atlas
 
-## Project Structure
+## Project Folders
 
-- `frontend` - React client app
-- `backend` - Express API
+- frontend: React client
+- backend: Express API
+- terraform: AWS infrastructure
 
 ## Prerequisites
 
@@ -17,36 +20,20 @@ A simple MERN stack task board app for DevOps practice.
 - npm
 - MongoDB Atlas cluster
 
-## Environment Configuration
+## Environment Variables
 
-This repository currently uses existing `.env` files in both apps.
+Backend file: backend/.env
 
-### Backend `.env`
+- PORT=5000
+- MONGODB_URI=<atlas-connection-string>
+- MONGODB_DB_NAME=mern_devops_practice
+- FRONTEND_URL=http://localhost:5173
 
-Location: `backend/.env`
+Frontend file: frontend/.env
 
-Required variables:
+- VITE_API_URL=http://localhost:5000/api
 
-- `PORT=5000`
-- `MONGODB_URI=<your-atlas-connection-string>`
-- `MONGODB_DB_NAME=mern_devops_practice`
-- `FRONTEND_URL=http://localhost:5173`
-
-Atlas URI example:
-
-`mongodb+srv://<username>:<password>@<cluster-url>/?retryWrites=true&w=majority`
-
-### Frontend `.env`
-
-Location: `frontend/.env`
-
-Required variable:
-
-- `VITE_API_URL=http://localhost:5000/api`
-
-## Install Dependencies
-
-From the repository root:
+## Install
 
 ```bash
 npm install
@@ -54,42 +41,24 @@ npm install --prefix backend
 npm install --prefix frontend
 ```
 
-## Run the App
+## Run
 
-### Option 1: Run both apps from root
+Run both apps:
 
 ```bash
 npm run dev
 ```
 
-### Option 2: Run separately
-
-Backend:
+Run separately:
 
 ```bash
 npm run dev --prefix backend
-```
-
-Frontend:
-
-```bash
 npm run dev --prefix frontend
 ```
 
-## URLs
-
-- Frontend: `http://localhost:5173`
-- Backend health: `http://localhost:5000/api/health`
-
 ## API Endpoints
 
-- `GET /api/health`
-- `GET /api/tasks`
-- `POST /api/tasks`
-- `PATCH /api/tasks/:id/toggle`
-
-## Notes
-
-- A database is created in Atlas when the first write operation occurs.
-- The DB name is controlled by `MONGODB_DB_NAME` in `backend/.env`.
-# mern-devops-practice
+- GET /api/health
+- GET /api/tasks
+- POST /api/tasks
+- PATCH /api/tasks/:id/toggle

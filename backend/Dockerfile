@@ -1,23 +1,23 @@
-# Node.js base image (patched Alpine stream)
+# Base image for the backend service.
 FROM node:20-alpine3.22
 
-# Container එක ඇතුළත වැඩ කරන ෆෝල්ඩරය (Working Directory) සකස් කිරීම
+# Set the working directory.
 WORKDIR /app
 
-# Pull latest security patches (including OpenSSL / libcrypto / libssl)
+# Apply latest OS security patches.
 RUN apk upgrade --no-cache
 
-# Package.json ගොනු පමණක් පළමුව copy කිරීම (කාලය ඉතිරි කරගැනීමට)
+# Copy dependency manifests first for better layer caching.
 COPY package*.json ./
 
-# අවශ්‍ය dependencies install කිරීම
+# Install dependencies.
 RUN npm install
 
-# ඉතිරි සියලුම කේතයන් සහ ගොනු copy කිරීම
+# Copy application source.
 COPY . .
 
-# Backend එක ධාවනය වන port එක විවෘත කිරීම
+# Expose API port.
 EXPOSE 5000
 
-# App එක start කිරීමට අවශ්‍ය විධානය ලබා දීම
+# Start the backend server.
 CMD ["npm", "start"]

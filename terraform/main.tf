@@ -1,6 +1,4 @@
-# terraform/main.tf
-
-# 1. Security Group එක සෑදීම (ආරක්ෂක නීති)
+# Security group for SSH, frontend HTTP, and backend API access.
 resource "aws_security_group" "mern_sg" {
   name        = "mern-app-sg"
   description = "Allow HTTP, Backend, and SSH traffic"
@@ -34,10 +32,10 @@ resource "aws_security_group" "mern_sg" {
   }
 }
 
-# --- අලුත් කොටස: ඔටෝමැටික් අලුත්ම Ubuntu AMI එක සොයාගැනීම ---
+# Resolve the latest Ubuntu 22.04 AMI dynamically.
 data "aws_ami" "ubuntu" {
   most_recent = true
-  owners      = ["099720109477"] # Canonical (Ubuntu) සමාගමේ නිල AWS ID එක
+  owners      = ["099720109477"] # Official Canonical AWS account ID.
 
   filter {
     name   = "name"
@@ -50,9 +48,9 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# 2. EC2 සර්වර් එක සෑදීම
+# EC2 instance for running the MERN containers.
 resource "aws_instance" "mern_server" {
-  ami           = data.aws_ami.ubuntu.id # Hardcode කළ අගය වෙනුවට dynamic අගය ලබාදීම
+  ami           = data.aws_ami.ubuntu.id # Use the latest image from the data source.
   instance_type = "t3.micro"
   key_name      = var.key_name
   vpc_security_group_ids = [aws_security_group.mern_sg.id]
@@ -71,8 +69,8 @@ resource "aws_instance" "mern_server" {
   }
 }
 
-# 3. IP එක එළියට දීම (Pipeline එක සඳහා)
+# Export public IP for CI/CD deployment steps.
 output "server_public_ip" {
-  description = "අලුතින් සෑදූ EC2 සර්වර් එකේ IP ලිපිනය"
+  description = "Public IP address of the created EC2 instance"
   value       = aws_instance.mern_server.public_ip
 }

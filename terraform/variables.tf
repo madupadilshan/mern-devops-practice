@@ -1,7 +1,5 @@
-# terraform/variables.tf
-
 variable "aws_region" {
-  description = "AWS Region එක"
+  description = "AWS region for resource deployment"
   default     = "us-east-1"
 }
 

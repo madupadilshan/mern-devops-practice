@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import './App.css';
 
+// Resolve API URL from env and fall back to same-host backend.
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || `http://${window.location.hostname}:5000/api`,
 });
@@ -13,16 +14,14 @@ function App() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const doneCount = useMemo(
-    () => tasks.filter((task) => task.done).length,
-    [tasks]
-  );
+  const doneCount = tasks.filter((task) => task.done).length;
 
   const loadTasks = async () => {
     setLoading(true);
     setError('');
 
     try {
+      // Load tasks ordered by newest first (from backend).
       const response = await api.get('/tasks');
       setTasks(response.data);
     } catch {
@@ -48,6 +47,7 @@ function App() {
     setError('');
 
     try {
+      // Create and prepend a new task in local state.
       const response = await api.post('/tasks', { title: normalizedTitle });
       setTasks((previous) => [response.data, ...previous]);
       setTitle('');
@@ -64,6 +64,7 @@ function App() {
     try {
       const response = await api.patch(`/tasks/${taskId}/toggle`);
 
+      // Replace only the updated task returned by the API.
       setTasks((previous) =>
         previous.map((task) =>
           task._id === taskId ? response.data : task
