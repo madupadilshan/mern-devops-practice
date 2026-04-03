@@ -30,6 +30,10 @@ The app is a simple task board with APIs to:
 
 ### 1.1 Architecture Diagram (Mermaid)
 
+Static image version:
+
+![MERN DevSecOps Architecture](docs/architecture-diagram.svg)
+
 ```mermaid
 flowchart LR
 	U[User Browser] --> FE[Frontend Container<br/>React + Nginx :80]
