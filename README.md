@@ -25,6 +25,35 @@ The app is a simple task board with APIs to:
 - create tasks
 - toggle task status
 
+### 1.1 Architecture Diagram (Mermaid)
+
+```mermaid
+flowchart LR
+	U[User Browser] --> FE[Frontend Container<br/>React + Nginx :80]
+	FE --> BE[Backend Container<br/>Node.js + Express :5000]
+	BE --> DB[(MongoDB Atlas)]
+
+	DEV[Developer] --> GH[GitHub Repository]
+	GH -->|push to main| GA[GitHub Actions Pipeline]
+
+	subgraph DevSecOps CI/CD
+		G1[GitLeaks]
+		G2[SonarCloud SAST]
+		G3[Build Docker Images]
+		G4[Trivy Scan]
+		G5[Push to ECR]
+		G6[Terraform Apply]
+		G7[Deploy via SSH]
+		G1 --> G2 --> G3 --> G4 --> G5 --> G6 --> G7
+	end
+
+	GA --> G1
+	G5 --> ECR[(AWS ECR)]
+	G6 --> EC2[AWS EC2 Instance]
+	G7 --> EC2
+	ECR --> EC2
+```
+
 ## 2. DevOps Components Used
 
 ### 2.1 Docker
@@ -155,6 +184,36 @@ When code is pushed to main:
 - Pulls latest images from ECR
 - Runs new containers
 - Prunes old dangling images
+
+### 4.1 End-to-End Flow Diagram (Mermaid)
+
+```mermaid
+sequenceDiagram
+	autonumber
+	participant Dev as Developer
+	participant GitHub as GitHub Repo
+	participant Actions as GitHub Actions
+	participant ECR as AWS ECR
+	participant TF as Terraform
+	participant EC2 as EC2 Server
+	participant Atlas as MongoDB Atlas
+	participant User as End User
+
+	Dev->>GitHub: Push code to main
+	GitHub->>Actions: Trigger pipeline
+	Actions->>Actions: GitLeaks secret scan
+	Actions->>Actions: SonarCloud SAST scan
+	Actions->>Actions: Build frontend/backend images
+	Actions->>Actions: Trivy image scan (critical fail gate)
+	Actions->>ECR: Push approved images
+	Actions->>TF: terraform init/apply
+	TF-->>Actions: Return EC2 public IP
+	Actions->>EC2: SSH deploy script
+	EC2->>ECR: Pull latest images
+	EC2->>EC2: Run frontend and backend containers
+	EC2->>Atlas: Backend connects to database
+	User->>EC2: Open app over HTTP
+```
 
 ## 5. Project Structure
 
